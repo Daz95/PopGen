@@ -1,5 +1,6 @@
 import java.util.ArrayList;
 import java.util.concurrent.ThreadLocalRandom;
+import java.lang.Math;
 
 /*
  * All Sections are restricted to 4x4 time signatures
@@ -14,6 +15,10 @@ public class Section {
 	static int numberOfBars;
 	static int[] noteLengthChances;
 	
+	int[] possibleNoteLengths;
+	int[] possibleRestLengths;
+	MidiNote[] notesAllowed;
+	
 	public Section(MidiNote key, int tempoBPM) 
 	{
 		Section.key = key;
@@ -26,7 +31,191 @@ public class Section {
 				16
 				};
 		
+		
+		int timeInBar = getTimeInFullBar(getMiliSecondsPerBeat());
+		this.possibleNoteLengths = new int[] {
+//				timeInBar/64, //16th
+				timeInBar/32, //8th
+				timeInBar/16, //quarter
+				timeInBar/8,  //half
+				timeInBar/4   //full
+				}; // from 1/16th notes to full note per beat
+		this.possibleRestLengths = new int[] {
+				0,
+//				timeInBar/64, 
+				timeInBar/32,
+				timeInBar/16,
+				timeInBar/8, 
+				timeInBar/4
+				}; // from no rest to full beat rest
+		
+		this.notesAllowed = getNotesAllowed(key);
+		
 		notes = generateSectionNotes();	
+	}
+	
+	protected void evolve(int rating)
+	{
+		Note[] currentNotes = this.notes;
+		Note[] newNotes = currentNotes;
+		float newFitness;
+		float currentFitness = 0;
+		float fitnessThreshold = (float)0.9;
+		float mutationStrength = (float)((10.0 - (float)rating) / 10.0); //The higher the rating, the lower the mutationStrength
+		
+		//newNotes = mutateSectionByNote(currentNotes, mutationStrength);
+		newFitness = 0;
+//		int mutationCounter = 0;
+		while(newFitness < fitnessThreshold)
+		{
+			newNotes = mutateSectionByNote(currentNotes, mutationStrength);
+			newFitness = calculateComparitiveFitness(this.notes, newNotes, rating);
+//			if(mutationCounter <= 1000)
+//				newNotes = mutateSectionByNote(currentNotes, mutationStrength * 1.2)
+			if(newFitness > currentFitness)
+			{
+				currentFitness = newFitness;
+				currentNotes = newNotes;
+			}
+			
+		}
+		
+		this.notes = currentNotes;
+	}
+	
+	protected float calculateComparitiveFitness(Note[] previousNotes, Note[] newNotes, int previousRating)
+	{
+		float fitness;
+		float midiNoteNumDiff;
+		float noteLengthDiff;
+		float restLengthDiff;
+		
+		AverageNote previousAvgNote = getAvgNote(previousNotes);
+		AverageNote newAvgNote = getAvgNote(newNotes);
+		
+		midiNoteNumDiff = Math.abs(previousAvgNote.midiNoteNum - newAvgNote.midiNoteNum);
+		noteLengthDiff = Math.abs(previousAvgNote.noteLength - newAvgNote.noteLength);
+		restLengthDiff = Math.abs(previousAvgNote.restLength - newAvgNote.restLength);
+		
+		fitness = (float)(calculateFitness(previousRating, midiNoteNumDiff, noteLengthDiff, restLengthDiff));
+		return fitness;
+		
+	}
+	
+	private float calculateFitness(int rating, float noteNumDiff, float noteLengthDiff, float restLengthDiff)
+	{
+		if(0 > rating || rating > 10)
+			return 0; //invalid rating
+		
+		float totalVariance = (float)(noteNumDiff + noteLengthDiff + restLengthDiff);
+		float maxFitness = (float)(totalVariance * 10); //as max rating a song can get is 10/10
+		float ratedFitness = (float)(totalVariance * rating);
+		
+		return (float)(ratedFitness/maxFitness); //returns decimal fitness value (number between 0 and 1)
+	}
+	
+	private AverageNote getAvgNote(Note[] notes)
+	{
+		float avgNoteLength;
+		float avgRestLength;
+		float avgMidiNoteNum;
+		int sumNoteLength = 0;
+		int sumRestLength = 0;
+		int sumMidiNoteNums = 0;
+		int numOfNotes = notes.length;
+		
+		for (Note note : notes) 
+		{
+			sumMidiNoteNums += note.midiNote.midiNoteNumber;
+			sumNoteLength += note.noteLength;
+			sumRestLength += note.restLength;
+		}
+		
+		avgMidiNoteNum = (float)(sumMidiNoteNums/numOfNotes);
+		avgNoteLength = (float)(sumNoteLength/numOfNotes);
+		avgRestLength = (float)(sumRestLength/numOfNotes);
+		
+		return new AverageNote(avgMidiNoteNum, avgNoteLength, avgRestLength);
+	}
+	
+	/*
+	 * Mutates a section of notes
+	 * Strength variable defines how many notes will be mutated
+	 */
+	private Note[] mutateSectionByNote(Note[] notes, float strength)
+	{
+		int randNotePos;
+		int timeAvailableBetweenNotes;
+		int numNotesToMutate;
+		ArrayList<Integer> mutatedNotesPos;
+		
+		// Strength should be a decimal below 1 or 1
+		// A strength of 1 will mutate all notes
+		if(strength > 1) 
+			strength = 1;
+		
+		numNotesToMutate = (int)(notes.length * strength);
+		mutatedNotesPos = new ArrayList<>();
+//		int[] mutatedNotesPos = new int[numNotesToMutate];
+		
+		
+		// Mutate/Replace a number of notes based on strength
+		for(int i = 0; i < numNotesToMutate; i++)
+		{
+			// Keep looking for a random note that hasn't already been mutate
+			while (isNoteMutated(mutatedNotesPos, randNotePos = getRandomInt(0, notes.length-1)));
+			
+				if(randNotePos == 0) 
+				{
+					// If it is the first note, we have no previous note to compare to -> create random  new note
+					notes[randNotePos] = getCompletelyRandomNote();
+					mutatedNotesPos.add(randNotePos);
+				}
+				else
+				{
+					// Otherwise -> create a new note normally, based on previous note
+					timeAvailableBetweenNotes = notes[randNotePos].noteLength + notes[randNotePos].restLength;
+					notes[randNotePos] = mutateNote(notes[randNotePos-1], timeAvailableBetweenNotes);	
+					mutatedNotesPos.add(randNotePos);
+				}
+		}
+		
+		return notes;
+	}
+	
+	private Note mutateNote(Note previousNote, int timeAvailable)
+	{
+		int timeInBar = getTimeInFullBar(getMiliSecondsPerBeat());
+		
+		MidiNote newNote = getRandomSmoothedNote(previousNote.midiNote, notesAllowed);
+		int newNoteLength = getRandNoteLength(timeInBar, timeAvailable, previousNote.noteLength);
+		timeAvailable -= newNoteLength;
+		int newRestLength = getRandRestLength(timeInBar, timeAvailable, previousNote.restLength);
+		
+		return new Note(newNote, newNoteLength, newRestLength);
+	}
+	
+	private Note getCompletelyRandomNote()
+	{
+		MidiNote midiNote = notesAllowed[getRandomInt(0, notesAllowed.length-1)];
+		int noteLength = possibleNoteLengths[getRandomInt(0, possibleNoteLengths.length-1)];
+		int restLength = possibleRestLengths[getRandomInt(0, possibleRestLengths.length-1)];
+		
+		return new Note(midiNote, noteLength, restLength);
+	}
+	
+	/*
+	 * Checks that note position chosen has not already been mutated before
+	 * Checks if @pos exists in the @mutatedNotesPos array list
+	 */
+	private boolean isNoteMutated(ArrayList<Integer> mutatedNotesPos, int pos)
+	{
+		for(int i=0; i < mutatedNotesPos.size(); i++)
+		{
+			if(mutatedNotesPos.get(i) == pos)
+				return true;
+		}
+		return false;
 	}
 	
 	protected Note[] generateRepeatedBars(int numberOfRepeatedBars, Note[] barNotes)
@@ -67,30 +256,22 @@ public class Section {
 		if(timeAvailable == 0)
 			return 0;
 		
-		int timeChosenPos;
-		
-		int[] possibleNoteLengths = {
-//				timeInBar/64, 
-				timeInBar/32,
-				timeInBar/16,
-				timeInBar/8, 
-				timeInBar/4
-				}; // from 1/16th notes to full note per beat
+		int lengthChosenPos;
 		
 		int[] smoothedNoteLengthChances = smoothLengthChances(previousNoteLength, possibleNoteLengths, noteLengthChances);
-		timeChosenPos = getRandPosChoice(smoothedNoteLengthChances);
+		lengthChosenPos = getRandPosChoice(smoothedNoteLengthChances);
 		
-		while (timeChosenPos >= 0)
+		while (lengthChosenPos >= 0)
 		{
-			if(possibleNoteLengths[timeChosenPos] > timeAvailable) //if the note is too long to fit in with the remaining time
+			if(possibleNoteLengths[lengthChosenPos] > timeAvailable) //if the note is too long to fit in with the remaining time
 			{
-				if(timeChosenPos == 0)
+				if(lengthChosenPos == 0)
 					return timeAvailable;
-				timeChosenPos -= 1; //keep lowering note length choice by one position until it can fit in available time
+				lengthChosenPos -= 1; //keep lowering note length choice by one position until it can fit in available time
 				//timeChosenPos = getRandomInt(0, timeChosenPos-1); //keep lowering note length by one until it can fit in available time
 			}
 			else
-				return possibleNoteLengths[timeChosenPos]; //Otherwise, it fits, so the note length is valid -> return 
+				return possibleNoteLengths[lengthChosenPos]; //Otherwise, it fits, so the note length is valid -> return 
 		}
 		
 		//If we get here, there is no valid note length
@@ -112,15 +293,6 @@ public class Section {
 				16
 				};
 		
-		int[] possibleRestLengths = {
-				0,
-//				timeInBar/64, 
-				timeInBar/32,
-				timeInBar/16,
-				timeInBar/8, 
-				timeInBar/4
-				}; // from no rest to full beat rest
-		
 		chanceForLengths = smoothLengthChances(previousRestLength, possibleRestLengths, chanceForLengths);
 		
 		timeChosenPos = getRandPosChoice(chanceForLengths);
@@ -140,6 +312,16 @@ public class Section {
 		return timeAvailable;
 	}
 	
+	private float getMiliSecondsPerBeat()
+	{
+		return 60000/tempoBPM;
+	}
+	
+	private int getTimeInFullBar(float millisecondsPerBeat)
+	{
+		 return (int)(4 * millisecondsPerBeat);
+	}
+	
 	/*
 	 * Returns a list of Notes to fill a 4x4 time signature bar (Including note length, and rest length)
 	 * Rest is more likely to be 0ms than anything else
@@ -151,7 +333,6 @@ public class Section {
 		float millisecondsPerBeat = 60000 / tempoBPM;
 		int initialTimeInBar = (int)(4 * millisecondsPerBeat); //In milliseconds - always assumed to be 4 beats in a bar
 		int timeAvailableInBar = initialTimeInBar;
-		MidiNote[] notesAllowed = getNotesAllowed(key);
 		
 		ArrayList<Note> barNotes = new ArrayList<Note>();
 		MidiNote currentNote;
@@ -183,7 +364,7 @@ public class Section {
 	 * by increasing the chance of selecting one closer to the previous note
 	 * making it more difficult to have jumps in notes
 	 */
-	private MidiNote getRandomSmoothedNote(MidiNote previouseNote, MidiNote[] notesAllowed)
+	private MidiNote getRandomSmoothedNote(MidiNote previousNote, MidiNote[] notesAllowed)
 	{
 		MidiNote newNote;
 		int newNotePos;
@@ -191,7 +372,7 @@ public class Section {
 		int[] noteChances = new int[notesAllowed.length];
 		for (int pos = 0; pos < noteChances.length; pos++)
 		{
-			if(notesAllowed[pos] == previouseNote) 
+			if(notesAllowed[pos] == previousNote) 
 			{
 				//So total chance will be 3 for the previous note to be selected again
 				noteChances[pos] += 2; 
@@ -218,8 +399,10 @@ public class Section {
 	 * Smooths length choice probabilities
 	 * To make previous length and other similar lengths more likely
 	 */
-	private int[] smoothLengthChances(int previousLength, int[] possibleLengths, int[] lengthChances)
+	private int[] smoothLengthChances(int previousLength, int[] possibleLengths, int[] lengthChancesToCopy)
 	{
+		int[] lengthChances = lengthChancesToCopy.clone();
+		
 		for (int pos = 0; pos < lengthChances.length; pos++)
 		{
 			if(possibleLengths[pos] == previousLength) 

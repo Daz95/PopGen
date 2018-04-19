@@ -7,19 +7,11 @@
 //import javax.sound.sampled.LineUnavailableException;
 //import javax.swing.JApplet;
 
-import java.awt.BorderLayout;
-import java.awt.Dimension;
-import java.awt.GridLayout;
 import java.util.ArrayList;
 
 import javax.sound.midi.*;
-import javax.swing.*;
-import javax.swing.event.ChangeEvent;
-import javax.swing.event.ChangeListener;
 
-import org.omg.PortableInterceptor.IORInterceptor;
-
-public class Song extends JApplet {
+public class Song {
 	
     
     // http://music.stackexchange.com/q/22133/1941
@@ -30,6 +22,7 @@ public class Song extends JApplet {
     int tempoBPM;
     MidiNote key;
 	Structure songStructure;
+	Note[] allNotes;
 	
 	
 	/*
@@ -41,18 +34,28 @@ public class Song extends JApplet {
 		this.channel = initMidiChannel(acousticGuitarSteel, 1);
 		
 		this.songStructure = new Structure(key, tempoBPM);
-		
-		
+		this.allNotes = getAllNotes();
+		playNotes(this.allNotes);
+//		playKeyNotes(key);
+	}
+	
+	private Note[] getAllNotes()
+	{
 		ArrayList<Note> notesList = new ArrayList<Note>();
-		for (Section section : songStructure.sections) {
+		for (Section section : this.songStructure.sections) {
 			for (Note note : section.notes) {
 				notesList.add(note);
 			}
 		}
 		
-		Note[] notes = notesList.toArray(new Note[notesList.size()]);
-		playNotes(notes);
-//		playKeyNotes(key);
+		return notesList.toArray(new Note[notesList.size()]);
+	}
+	
+	public void evolveAndPlay(int rating) throws InterruptedException
+	{
+		this.songStructure.evolve(rating);
+		this.allNotes = getAllNotes();
+		playNotes(this.allNotes);
 	}
 
 	
@@ -95,7 +98,6 @@ public class Song extends JApplet {
 	 */
 	private MidiNote[] getNotesAllowed(MidiNote key)
 	{
-		
 		switch (key){
 			case C:
 				return new MidiNote[] {MidiNote.C, MidiNote.D, MidiNote.E, MidiNote.F, MidiNote.G, MidiNote.A, MidiNote.B, MidiNote.Chi};
@@ -149,23 +151,5 @@ public class Song extends JApplet {
 
     public void silence() {
         this.channel.allNotesOff();
-    }
-		
-	
-    public static void main(String[] args) {
-        SwingUtilities.invokeLater(new Runnable() {
-            public void run() {
-                try {
-					new Song();
-				} catch (MidiUnavailableException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				} catch (InterruptedException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-            }
-        });
-    }
-		
+    }		
 }

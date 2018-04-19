@@ -37,6 +37,13 @@ public class Structure {
 		return sections[getRandSectionPos(sections.length-1)];
 	}
 	
+	public void evolve(int rating)
+	{
+		for (Section section : sections) {
+			section.evolve(rating);
+		}
+	}
+	
 	private int getRandSectionPos(int max)
 	{
 		return ThreadLocalRandom.current().nextInt(0, max + 1);
