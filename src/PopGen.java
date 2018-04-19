@@ -11,7 +11,7 @@ public class PopGen extends JApplet {
 	public void init() {
 		try {
 			getContentPane().setVisible(false);
-			JFrame frame = new JFrame("PopFUCKINGGen");
+			JFrame frame = new JFrame("PopGen");
 			frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 			PopGenPanel panel = new PopGenPanel();
 			panel.setVisible(true);

@@ -14,6 +14,7 @@ public class Chorus extends Section {
 	public Chorus(MidiNote  key, int tempoBPM) {
 		super(key, tempoBPM);
 		Chorus.numberOfBars = 8;
+		Chorus.numOfRepetitions = 4;
 		Chorus.noteLengthChances = new int[] {
 //				1,
 				2,
@@ -21,7 +22,7 @@ public class Chorus extends Section {
 				64,
 				16
 				};
-		notes = generateRepeatedBars(4, generateSectionNotes());;
+		notes = generateRepeatedBars(numOfRepetitions, generateSectionNotes());;
 //		notes = generateSectionNotes();
 	}
 	

@@ -10,10 +10,12 @@ import java.lang.Math;
  */
 public class Section {
 	Note[] notes;
+	Note[] barNotes;
 	static MidiNote key;
 	static int tempoBPM;
 	static int numberOfBars;
 	static int[] noteLengthChances;
+	static int numOfRepetitions;
 	
 	int[] possibleNoteLengths;
 	int[] possibleRestLengths;
@@ -23,6 +25,7 @@ public class Section {
 	{
 		Section.key = key;
 		Section.tempoBPM = tempoBPM;
+		Section.numOfRepetitions = 4;
 		Section.noteLengthChances = new int[] {
 //				1,
 				2,
@@ -32,7 +35,7 @@ public class Section {
 				};
 		
 		
-		int timeInBar = getTimeInFullBar(getMiliSecondsPerBeat());
+		int timeInBar = getTimeInFullBar(getMilliSecondsPerBeat());
 		this.possibleNoteLengths = new int[] {
 //				timeInBar/64, //16th
 				timeInBar/32, //8th
@@ -56,7 +59,7 @@ public class Section {
 	
 	protected void evolve(int rating)
 	{
-		Note[] currentNotes = this.notes;
+		Note[] currentNotes = this.barNotes;
 		Note[] newNotes = currentNotes;
 		float newFitness;
 		float currentFitness = 0;
@@ -68,7 +71,17 @@ public class Section {
 //		int mutationCounter = 0;
 		while(newFitness < fitnessThreshold)
 		{
-			newNotes = mutateSectionByNote(currentNotes, mutationStrength);
+			//Choose mutation method
+			//true will call "muteSectionByNote" function for mutation. false will call mutateSectionReplaceLengths
+			if(getRandBool()) 
+			{
+				newNotes = mutateSectionByNote(currentNotes, mutationStrength);
+			}
+			else
+			{
+				newNotes = mutateSectionReplaceLengths(currentNotes, mutationStrength);
+			}
+			
 			newFitness = calculateComparitiveFitness(this.notes, newNotes, rating);
 //			if(mutationCounter <= 1000)
 //				newNotes = mutateSectionByNote(currentNotes, mutationStrength * 1.2)
@@ -80,7 +93,12 @@ public class Section {
 			
 		}
 		
-		this.notes = currentNotes;
+		this.notes = generateRepeatedBars(numOfRepetitions, currentNotes);
+	}
+	
+	private boolean getRandBool()
+	{
+		return ThreadLocalRandom.current().nextBoolean();
 	}
 	
 	protected float calculateComparitiveFitness(Note[] previousNotes, Note[] newNotes, int previousRating)
@@ -99,7 +117,6 @@ public class Section {
 		
 		fitness = (float)(calculateFitness(previousRating, midiNoteNumDiff, noteLengthDiff, restLengthDiff));
 		return fitness;
-		
 	}
 	
 	private float calculateFitness(int rating, float noteNumDiff, float noteLengthDiff, float restLengthDiff)
@@ -138,12 +155,48 @@ public class Section {
 		return new AverageNote(avgMidiNoteNum, avgNoteLength, avgRestLength);
 	}
 	
+	private Note[] mutateSectionReplaceLengths(Note[] notes, float strength)
+	{
+		int randNotePos;
+		int numNotesToMutate;
+		ArrayList<Integer> mutatedNotesPos;
+		
+		Note[] newNotes = notes.clone();
+		
+		if(strength > 1);
+			strength = 1;
+		
+		numNotesToMutate = (int)(newNotes.length * strength);
+		mutatedNotesPos = new ArrayList<>();
+		
+		for(int i = 0; i < numNotesToMutate; i++)
+		{
+			while (isNoteMutated(mutatedNotesPos, randNotePos = getRandomInt(0, newNotes.length-1)));
+				
+				if(randNotePos == 0) 
+				{
+					// If it is the first note, we have no previous note to compare to -> create random  new note
+					newNotes[randNotePos].midiNote = getCompletelyRandomNote().midiNote;
+					mutatedNotesPos.add(randNotePos);
+				}
+				else
+				{
+					// Otherwise -> create a new note normally, based on previous note
+					newNotes[randNotePos].midiNote = getRandomSmoothedNote(newNotes[randNotePos-1].midiNote, notesAllowed);	
+					mutatedNotesPos.add(randNotePos);
+				}
+		}
+		
+		return mutateAllLengths(newNotes);
+	}
+	
 	/*
 	 * Mutates a section of notes
 	 * Strength variable defines how many notes will be mutated
 	 */
 	private Note[] mutateSectionByNote(Note[] notes, float strength)
 	{
+		Note[] newNotes = notes.clone();
 		int randNotePos;
 		int timeAvailableBetweenNotes;
 		int numNotesToMutate;
@@ -154,7 +207,7 @@ public class Section {
 		if(strength > 1) 
 			strength = 1;
 		
-		numNotesToMutate = (int)(notes.length * strength);
+		numNotesToMutate = (int)(newNotes.length * strength);
 		mutatedNotesPos = new ArrayList<>();
 //		int[] mutatedNotesPos = new int[numNotesToMutate];
 		
@@ -163,29 +216,29 @@ public class Section {
 		for(int i = 0; i < numNotesToMutate; i++)
 		{
 			// Keep looking for a random note that hasn't already been mutate
-			while (isNoteMutated(mutatedNotesPos, randNotePos = getRandomInt(0, notes.length-1)));
+			while (isNoteMutated(mutatedNotesPos, randNotePos = getRandomInt(0, newNotes.length-1)));
 			
 				if(randNotePos == 0) 
 				{
 					// If it is the first note, we have no previous note to compare to -> create random  new note
-					notes[randNotePos] = getCompletelyRandomNote();
+					newNotes[randNotePos] = getCompletelyRandomNote();
 					mutatedNotesPos.add(randNotePos);
 				}
 				else
 				{
 					// Otherwise -> create a new note normally, based on previous note
-					timeAvailableBetweenNotes = notes[randNotePos].noteLength + notes[randNotePos].restLength;
-					notes[randNotePos] = mutateNote(notes[randNotePos-1], timeAvailableBetweenNotes);	
+					timeAvailableBetweenNotes = newNotes[randNotePos].noteLength + newNotes[randNotePos].restLength;
+					newNotes[randNotePos] = mutateNote(newNotes[randNotePos-1], timeAvailableBetweenNotes);	
 					mutatedNotesPos.add(randNotePos);
 				}
 		}
 		
-		return notes;
+		return newNotes;
 	}
 	
 	private Note mutateNote(Note previousNote, int timeAvailable)
 	{
-		int timeInBar = getTimeInFullBar(getMiliSecondsPerBeat());
+		int timeInBar = getTimeInFullBar(getMilliSecondsPerBeat());
 		
 		MidiNote newNote = getRandomSmoothedNote(previousNote.midiNote, notesAllowed);
 		int newNoteLength = getRandNoteLength(timeInBar, timeAvailable, previousNote.noteLength);
@@ -193,6 +246,74 @@ public class Section {
 		int newRestLength = getRandRestLength(timeInBar, timeAvailable, previousNote.restLength);
 		
 		return new Note(newNote, newNoteLength, newRestLength);
+	}
+	
+	private Note[] mutateAllLengths(Note[] notes)
+	{
+		Note[] newNotes = notes.clone();
+		float millisecondsPerBeat = getMilliSecondsPerBeat();
+		int initialTimeInBar = getTimeInFullBar(millisecondsPerBeat); //In milliseconds - always assumed to be 4 beats in a bar
+		int timeAvailableInBar = initialTimeInBar;
+		
+		int currentNoteLength = getCompletelyRandomNote().noteLength;
+		int currentRestLength = getCompletelyRandomNote().restLength;
+		
+		ArrayList<Integer> newNoteLengths = new ArrayList<>();
+		ArrayList<Integer> newRestLengths = new ArrayList<>();
+		
+		while(timeAvailableInBar > 0)
+		{
+				currentNoteLength = getRandNoteLength(initialTimeInBar, timeAvailableInBar, currentNoteLength);
+				timeAvailableInBar -= currentNoteLength;
+				currentRestLength = getRandRestLength(initialTimeInBar, timeAvailableInBar, currentRestLength);
+				timeAvailableInBar -= currentRestLength;
+				newNoteLengths.add(currentNoteLength);
+				newRestLengths.add(currentRestLength);
+		}
+		
+		//Copies and returns only new notes that were mutated 
+		//-> dropping end notes that may not fit into the bar anymore with the new note/rest lengths
+		//Or if there is space for new notes create new notes to fill it
+		return assignNewLengths(newNotes, newNoteLengths, newRestLengths);
+	}
+	
+	private Note[] assignNewLengths(Note[] notes, ArrayList<Integer> newNoteLengths, ArrayList<Integer> newRestLengths)
+	{
+		Note[] newNotes = notes.clone();
+		int numOfNewLengths = newNoteLengths.size();
+		Note[] arrayCopy = new Note[numOfNewLengths];
+		
+		int numOfExtraNotes = 0;
+		if(newNotes.length < numOfNewLengths) //there are more lengths than before -> generate extra MidiNotes to go with them
+		{			
+			for(int i=0; i < newNotes.length; i++)
+			{
+				arrayCopy[i] = newNotes[i];
+				arrayCopy[i].noteLength = newNoteLengths.get(i);
+				arrayCopy[i].restLength = newRestLengths.get(i);
+			}
+			
+			numOfExtraNotes = newNotes.length - numOfExtraNotes;
+			for(int i = newNotes.length; i < numOfNewLengths; i++)
+			{
+				arrayCopy[i] = new Note(
+						getRandomSmoothedNote(arrayCopy[i-1].midiNote, notesAllowed), 
+						newNoteLengths.get(i), 
+						newRestLengths.get(i)
+						);
+			}
+		}
+		else // there are the same (or less) number of lengths than before -> remove extra notes
+		{
+			for(int i=0; i < numOfNewLengths; i++)
+			{
+				arrayCopy[i] = newNotes[i];
+				arrayCopy[i].noteLength = newNoteLengths.get(i);
+				arrayCopy[i].restLength = newRestLengths.get(i);
+			}
+		}
+		
+		return arrayCopy;
 	}
 	
 	private Note getCompletelyRandomNote()
@@ -221,7 +342,7 @@ public class Section {
 	protected Note[] generateRepeatedBars(int numberOfRepeatedBars, Note[] barNotes)
 	{
 		Note[] repeatedBarNotes = new Note[barNotes.length * numberOfRepeatedBars];
-		
+		this.barNotes = barNotes;
 		int pos = 0;
 		for(int i = 0; i < numberOfRepeatedBars; i++)
 		{
@@ -312,7 +433,7 @@ public class Section {
 		return timeAvailable;
 	}
 	
-	private float getMiliSecondsPerBeat()
+	private float getMilliSecondsPerBeat()
 	{
 		return 60000/tempoBPM;
 	}
@@ -330,8 +451,8 @@ public class Section {
 	 */
 	private ArrayList<Note> generateBarNotes()
 	{
-		float millisecondsPerBeat = 60000 / tempoBPM;
-		int initialTimeInBar = (int)(4 * millisecondsPerBeat); //In milliseconds - always assumed to be 4 beats in a bar
+		float millisecondsPerBeat = getMilliSecondsPerBeat();
+		int initialTimeInBar = getTimeInFullBar(millisecondsPerBeat); //In milliseconds - always assumed to be 4 beats in a bar
 		int timeAvailableInBar = initialTimeInBar;
 		
 		ArrayList<Note> barNotes = new ArrayList<Note>();

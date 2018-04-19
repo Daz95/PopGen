@@ -15,6 +15,7 @@ public class Verse extends Section {
 		super(key, tempoBPM);
 //		Verse.numberOfBars = 8;
 		Verse.numberOfBars = 16;
+		Verse.numOfRepetitions = 2;
 		Verse.noteLengthChances = new int[] {
 //				1,
 				2,
@@ -22,7 +23,7 @@ public class Verse extends Section {
 				32,
 				16
 				};
-		notes = generateRepeatedBars(2, generateSectionNotes());;
+		notes = generateRepeatedBars(numOfRepetitions, generateSectionNotes());;
 //		notes = generateSectionNotes();
 	}
 	

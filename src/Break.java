@@ -15,6 +15,7 @@ public class Break extends Section {
 	{
 		super(key, tempoBPM);
 		Break.numberOfBars = 4;
+		Break.numOfRepetitions = 4;
 		Break.noteLengthChances = new int[] {
 //				1,
 				2,
@@ -22,7 +23,7 @@ public class Break extends Section {
 				32,
 				32
 				};
-		notes = generateRepeatedBars(4, generateSectionNotes());;
+		notes = generateRepeatedBars(numOfRepetitions, generateSectionNotes());;
 //		notes = generateSectionNotes();	
 	}
 	

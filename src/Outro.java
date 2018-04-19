@@ -15,6 +15,7 @@ public class Outro extends Section {
 	{
 		super(key, tempoBPM);
 		Outro.numberOfBars = 8;
+		Outro.numOfRepetitions = 2;
 		Outro.noteLengthChances = new int[] {
 //				1,
 				2,
@@ -22,7 +23,7 @@ public class Outro extends Section {
 				32,
 				16
 				};
-		notes = generateRepeatedBars(2, generateSectionNotes());;
+		notes = generateRepeatedBars(numOfRepetitions, generateSectionNotes());;
 //		notes = generateSectionNotes();
 	}
 	

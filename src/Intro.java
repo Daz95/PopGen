@@ -15,6 +15,7 @@ public class Intro extends Section {
 	{
 		super(key, tempoBPM);
 		Intro.numberOfBars = 8;
+		Intro.numOfRepetitions = 2;
 		Intro.noteLengthChances = new int[] {
 //				1,
 				2,
@@ -23,7 +24,7 @@ public class Intro extends Section {
 				16
 				};
 		
-		notes = generateRepeatedBars(2, generateSectionNotes());
+		notes = generateRepeatedBars(numOfRepetitions, generateSectionNotes());
 	}
 	
 	private boolean isValidIntro()
