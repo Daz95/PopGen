@@ -4,13 +4,10 @@
 
 /**
  * @author Dharius
- *
+ * Break section
  */
 public class Break extends Section {
 
-	/**
-	 * 
-	 */
 	public Break(MidiNote  key, int tempoBPM) 
 	{
 		super(key, tempoBPM);
@@ -26,13 +23,4 @@ public class Break extends Section {
 		notes = generateRepeatedBars(numOfRepetitions, generateSectionNotes());;
 //		notes = generateSectionNotes();	
 	}
-	
-	private boolean isValidBreak()
-	{
-		if (this.notes.length != 0)
-			return true;
-		else
-			return false;
-	}
-
 }

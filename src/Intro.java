@@ -1,16 +1,9 @@
 /**
- * 
- */
-
-/**
  * @author Dharius
- *
+ * Introduction section
  */
 public class Intro extends Section {
 
-	/**
-	 * 
-	 */
 	public Intro(MidiNote  key, int tempoBPM) 
 	{
 		super(key, tempoBPM);
@@ -26,13 +19,4 @@ public class Intro extends Section {
 		
 		notes = generateRepeatedBars(numOfRepetitions, generateSectionNotes());
 	}
-	
-	private boolean isValidIntro()
-	{
-		if (this.notes.length != 0)
-			return true;
-		else
-			return false;
-	}
-
 }

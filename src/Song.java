@@ -1,14 +1,4 @@
-//import java.io.ByteArrayInputStream;
-//import javax.sound.sampled.AudioFormat;
-//import javax.sound.sampled.AudioInputStream;
-//import javax.sound.sampled.AudioSystem;
-//import javax.sound.sampled.Clip;
-//import javax.sound.sampled.FloatControl;
-//import javax.sound.sampled.LineUnavailableException;
-//import javax.swing.JApplet;
-
 import java.util.ArrayList;
-
 import javax.sound.midi.*;
 
 public class Song {
@@ -30,7 +20,7 @@ public class Song {
 	 */
 	public Song() throws MidiUnavailableException, InterruptedException {
 		this.tempoBPM = 120;
-		this.key = MidiNote.G;
+		this.key = MidiNote.Bflat;
 		this.channel = initMidiChannel(acousticGuitarSteel, 1);
 		
 		this.songStructure = new Structure(key, tempoBPM);
@@ -39,6 +29,10 @@ public class Song {
 //		playKeyNotes(key);
 	}
 	
+	/*
+	 * Combines all notes from all sections in the song into one Note array
+	 * Returns Note array of all section notes
+	 */
 	private Note[] getAllNotes()
 	{
 		ArrayList<Note> notesList = new ArrayList<Note>();
@@ -51,6 +45,9 @@ public class Song {
 		return notesList.toArray(new Note[notesList.size()]);
 	}
 	
+	/*
+	 * Evolves current song and plays new evolved output
+	 */
 	public void evolveAndPlay(int rating) throws InterruptedException
 	{
 		this.songStructure.evolve(rating);
@@ -59,6 +56,9 @@ public class Song {
 	}
 
 	
+	/*
+	 * Initialise the midi channel to be used for playing midi notes
+	 */
 	private static MidiChannel initMidiChannel(int instrument, int channelNo) throws MidiUnavailableException {
         Synthesizer synth = MidiSystem.getSynthesizer();
         synth.open();
@@ -66,10 +66,12 @@ public class Song {
         // MIDI instruments are traditionally numbered from 1,
         // but the javax.midi API numbers them from 0
         channel.programChange(instrument - 1);
-        //channel.setChannelPressure(10);  // optional vibrato
         return channel;
     }
 	
+	/*
+	 * Plays all notes in the "notes" array out loud
+	 */
 	public void playNotes(Note[] notes) throws InterruptedException
 	{
 		for (Note note : notes) {
@@ -81,6 +83,7 @@ public class Song {
 		}
 	}
 	
+	/*
 	public void playKeyNotes(MidiNote key) throws InterruptedException
 	{
 		MidiNote[] notesInKey = getNotesAllowed(key);
@@ -91,11 +94,12 @@ public class Song {
 			this.silence();
 		}
 	}
-	
+	*/
 	/*
 	 * *REMOVE WHEN COMPLETE*
 	 * Used for debugging - checking that key notes are correct
 	 */
+	/*
 	private MidiNote[] getNotesAllowed(MidiNote key)
 	{
 		switch (key){
@@ -144,11 +148,18 @@ public class Song {
 				return new MidiNote[] {MidiNote.G, MidiNote.A, MidiNote.B, MidiNote.C, MidiNote.D, MidiNote.E, MidiNote.Fsharp, MidiNote.Ghi};
 		}
 	}
+	*/
 	
+	/*
+	 * Plays a single midi note
+	 */
 	public void play(MidiNote note) {
         this.channel.noteOn(note.midiNoteNumber, 127); 
     }
 
+	/*
+	 * Turns off any currently playing midi note
+	 */
     public void silence() {
         this.channel.allNotesOff();
     }		

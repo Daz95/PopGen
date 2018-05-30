@@ -4,13 +4,10 @@
 
 /**
  * @author Dharius
- *
+ * Outro section
  */
 public class Outro extends Section {
 
-	/**
-	 * 
-	 */
 	public Outro(MidiNote  key, int tempoBPM) 
 	{
 		super(key, tempoBPM);
@@ -26,13 +23,4 @@ public class Outro extends Section {
 		notes = generateRepeatedBars(numOfRepetitions, generateSectionNotes());;
 //		notes = generateSectionNotes();
 	}
-	
-	private boolean isValidOutro()
-	{
-		if (this.notes.length != 0)
-			return true;
-		else
-			return false;
-	}
-
 }

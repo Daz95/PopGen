@@ -1,5 +1,9 @@
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
+
 import java.lang.Math;
 
 /*
@@ -57,14 +61,136 @@ public class Section {
 		notes = generateSectionNotes();	
 	}
 	
-	protected void evolve(int rating)
+	/*
+	 * Evolves the current using a genetic algorithm
+	 */
+	protected void GAEvolve(int numOfGenerations, int populationSize, int rating)
+	{
+		float mutationStrength;
+		float[] popCompFitnesses;
+		Section candidate;
+		Section[] population = new Section[populationSize];
+		Section[] bestGenCandidates;
+		
+		// Generate initial population
+		popCompFitnesses = new float[populationSize];
+		for(int candidateNo = 0; candidateNo < populationSize; candidateNo++)
+		{
+			candidate = cloneSection(this);
+			
+			// 70% of the population size to be populated with variations of the original section
+			// Where the mutation strength is set specifically based on the user's rating of the song
+			// Leaving 30% of the initial population completely random
+			if(candidateNo < (populationSize/10) * 7) 
+			{
+				//The higher the rating, the lower the mutationStrength
+				mutationStrength = (float)(((float)10.0 - (float)rating) / (float)10.0);
+				candidate = mutate(candidate, mutationStrength);
+				population[candidateNo] = candidate;
+			}
+			// For the rest of the population, use a random mutation strength
+			else
+			{
+				//Get a random mutation strength between 0 and 1 (to 1dp)
+				mutationStrength = (float)((float)getRandomInt(1, 10)/(float)10.0);
+				candidate = mutate(candidate, mutationStrength);
+				population[candidateNo] = candidate;
+			}
+			popCompFitnesses[candidateNo] = calculateComparativeFitness(this.barNotes, candidate.barNotes, rating);
+		}
+		
+		//Genetically evolve using a random mutation strength
+		for(int generationNo = 0; generationNo < numOfGenerations; generationNo++ )
+		{
+			bestGenCandidates = getRankedSelections(popCompFitnesses, populationSize, populationSize/100, population);
+			
+			// Generate another 1% of a full population from evolved versions of that candidate (including exact original candidate)
+			int candidateNo = 0;
+			for (Section bestCandidate : bestGenCandidates) {
+				population[candidateNo] = bestCandidate;
+				candidateNo++;
+				for(int i = 1; i < (int)(populationSize/100); i++)
+				{
+					mutationStrength = (float)(getRandomInt(0, 10)/(float)10);
+					candidate = cloneSection(bestCandidate);
+					candidate = mutate(candidate, mutationStrength);
+					population[candidateNo] = candidate;
+					candidateNo++;
+				}
+			}
+		}
+		
+		bestGenCandidates = getRankedSelections(popCompFitnesses, populationSize, populationSize/100, population);
+		this.notes = bestGenCandidates[bestGenCandidates.length-1].notes;
+	}
+	
+	/*
+	 * Gets the best candidates from a generation's population
+	 * Using ranked selection
+	 */
+	private Section[] getRankedSelections(float[] popCompFitnesses, int populationSize, int selectionSize, Section[] population)
+	{
+		Section[] selectedCandidates = new Section[selectionSize];
+		int[] rankedProbabilities = new int[populationSize];
+		
+		for(int i = 0; i < populationSize; i++)
+		{
+			rankedProbabilities[i] = i++;
+		}
+		
+		//Get selected population
+		for(int i = 0; i < selectionSize; i++)
+		{
+			//returns position of randomly chosen candidate after determining ordering the positions of each candidate according to their rank
+			selectedCandidates[i] = population[candidateRankPositions(popCompFitnesses)[getRandPosChoice(rankedProbabilities)]]; 
+		}
+		
+		return selectedCandidates;
+		
+	}
+	
+	
+	/*
+	 * Returns population positions in order of the candidates' fitness values
+	 * So the first element in the returned array is the position of the worst candidate
+	 */
+	private int[] candidateRankPositions(float[] popCompFitnesses)
+	{
+		float[] popFitnesses = popCompFitnesses.clone();
+		int[] rankPositions = new int[popFitnesses.length];
+		Map<Float, Integer> candidatePosMap = new HashMap<Float, Integer>();
+		for (int i = 0; i < popFitnesses.length; i++) {
+			candidatePosMap.put(popFitnesses[i], i);
+        }
+		Arrays.sort(popFitnesses);
+		
+		for (int i = 0; i < popFitnesses.length; i++)
+		{
+			rankPositions[i] = candidatePosMap.get(popFitnesses[i]);
+		}
+		
+		return rankPositions;
+	}
+	
+	/*
+	 * Creates a new clone of section1
+	 */
+	public Section cloneSection(Section section1)
+	{
+		Section section2 = new Section(key, tempoBPM);
+		section2.barNotes = cloneNotes(section1.barNotes);
+		section2.notes = cloneNotes(section1.notes);
+		return section2;
+	}
+	
+	/*
+	protected void evolve(int rating, float mutationStrength)
 	{
 		Note[] currentNotes = this.barNotes;
 		Note[] newNotes = currentNotes;
 		float newFitness;
 		float currentFitness = 0;
-		float fitnessThreshold = (float)0.9;
-		float mutationStrength = (float)((10.0 - (float)rating) / 10.0); //The higher the rating, the lower the mutationStrength
+		float fitnessThreshold = (float)0.999;
 		
 		//newNotes = mutateSectionByNote(currentNotes, mutationStrength);
 		newFitness = 0;
@@ -82,7 +208,7 @@ public class Section {
 				newNotes = mutateSectionReplaceLengths(currentNotes, mutationStrength);
 			}
 			
-			newFitness = calculateComparitiveFitness(this.notes, newNotes, rating);
+			newFitness = calculateComparativeFitness(this.notes, newNotes, rating);
 //			if(mutationCounter <= 1000)
 //				newNotes = mutateSectionByNote(currentNotes, mutationStrength * 1.2)
 			if(newFitness > currentFitness)
@@ -95,13 +221,42 @@ public class Section {
 		
 		this.notes = generateRepeatedBars(numOfRepetitions, currentNotes);
 	}
+	*/
 	
+	/*
+	 * Mutates a number of notes in a bar (Returns full section with repeated bars)
+	 * Based on the mutation strength
+	 */
+	protected Section mutate(Section candidate, float mutationStrength)
+	{
+		Section mutatedCandidate = candidate;
+		
+		//Choose mutation method
+		//true will call "muteSectionByNote" function for mutation. 
+		//false will call mutateSectionReplaceLengths
+		if(getRandBool()) 
+			mutatedCandidate.barNotes = mutateSectionByNote(mutatedCandidate.notes, mutationStrength);
+		else
+			mutatedCandidate.barNotes = mutateSectionReplaceLengths(mutatedCandidate.notes, mutationStrength);
+		
+		mutatedCandidate.notes = generateRepeatedBars(mutatedCandidate.numOfRepetitions, mutatedCandidate.barNotes);
+		
+		return mutatedCandidate;
+	}
+	
+	/*
+	 * Returns a random boolean value
+	 */
 	private boolean getRandBool()
 	{
 		return ThreadLocalRandom.current().nextBoolean();
 	}
 	
-	protected float calculateComparitiveFitness(Note[] previousNotes, Note[] newNotes, int previousRating)
+	/*
+	 * Returns a comparative fitness 
+	 * Based on the newNotes' similarity/variance to/from the previousNotes (and the previousNotes' rating)
+	 */
+	protected float calculateComparativeFitness(Note[] previousNotes, Note[] newNotes, int previousRating)
 	{
 		float fitness;
 		float midiNoteNumDiff;
@@ -115,22 +270,37 @@ public class Section {
 		noteLengthDiff = Math.abs(previousAvgNote.noteLength - newAvgNote.noteLength);
 		restLengthDiff = Math.abs(previousAvgNote.restLength - newAvgNote.restLength);
 		
-		fitness = (float)(calculateFitness(previousRating, midiNoteNumDiff, noteLengthDiff, restLengthDiff));
+		fitness = (calculateFitness(previousRating, midiNoteNumDiff, noteLengthDiff, restLengthDiff));
 		return fitness;
 	}
 	
+	/*
+	 * Calculates fitness
+	 * Based on variance of note values compared to the rating
+	 * Where the best variance would be none if the rating was 10 (maximum fitness)
+	 */
 	private float calculateFitness(int rating, float noteNumDiff, float noteLengthDiff, float restLengthDiff)
 	{
 		if(0 > rating || rating > 10)
 			return 0; //invalid rating
 		
 		float totalVariance = (float)(noteNumDiff + noteLengthDiff + restLengthDiff);
-		float maxFitness = (float)(totalVariance * 10); //as max rating a song can get is 10/10
+		float maxFitness = (float)(totalVariance * (float)10.0); //as max rating a song can get is 10/10
 		float ratedFitness = (float)(totalVariance * rating);
 		
-		return (float)(ratedFitness/maxFitness); //returns decimal fitness value (number between 0 and 1)
+		if(maxFitness == 0)
+			return 1; //No difference, therefore best fitness
+		else
+			return (float)(ratedFitness/maxFitness); //returns decimal fitness value (number between 0 and 1)
 	}
 	
+	/*
+	 * Get an average of every aspect of a the section's notes
+	 * Includes:
+	 * Average of note pitch
+	 * Average of note length
+	 * Average of rest length
+	 */
 	private AverageNote getAvgNote(Note[] notes)
 	{
 		float avgNoteLength;
@@ -155,19 +325,33 @@ public class Section {
 		return new AverageNote(avgMidiNoteNum, avgNoteLength, avgRestLength);
 	}
 	
+	/*
+	 * Mutates a section of notes, by replacing all aspects of each note
+	 * Including:
+	 * Midi note
+	 * Note length
+	 * Rest length
+	 * 
+	 * Where "strength" variable defines how many notes will be mutated
+	 */
 	private Note[] mutateSectionReplaceLengths(Note[] notes, float strength)
 	{
 		int randNotePos;
 		int numNotesToMutate;
 		ArrayList<Integer> mutatedNotesPos;
+		MidiNote newNote;
 		
-		Note[] newNotes = notes.clone();
+		Note[] newNotes = cloneNotes(notes);
+		
 		
 		if(strength > 1);
 			strength = 1;
 		
 		numNotesToMutate = (int)(newNotes.length * strength);
 		mutatedNotesPos = new ArrayList<>();
+		
+		if(numNotesToMutate == 0)
+			numNotesToMutate = 1;
 		
 		for(int i = 0; i < numNotesToMutate; i++)
 		{
@@ -176,13 +360,15 @@ public class Section {
 				if(randNotePos == 0) 
 				{
 					// If it is the first note, we have no previous note to compare to -> create random  new note
-					newNotes[randNotePos].midiNote = getCompletelyRandomNote().midiNote;
+					newNote = getCompletelyRandomNote().midiNote;
+					newNotes[randNotePos].setMidiNote(newNote);
 					mutatedNotesPos.add(randNotePos);
 				}
 				else
 				{
 					// Otherwise -> create a new note normally, based on previous note
-					newNotes[randNotePos].midiNote = getRandomSmoothedNote(newNotes[randNotePos-1].midiNote, notesAllowed);	
+					newNote = getRandomSmoothedNote(newNotes[randNotePos-1].midiNote, notesAllowed);
+					newNotes[randNotePos].setMidiNote(newNote);
 					mutatedNotesPos.add(randNotePos);
 				}
 		}
@@ -191,12 +377,30 @@ public class Section {
 	}
 	
 	/*
+	 * Creates a new copy of array of notes from the "notes" parameter
+	 */
+	private Note[] cloneNotes(Note[] notes) 
+	{
+		Note[] newNotes = new Note[notes.length];
+		Note cloneNote;
+		for (int i = 0; i < notes.length; i++)
+		{
+			cloneNote = getCompletelyRandomNote();
+			cloneNote.setMidiNote(notes[i].midiNote);
+			cloneNote.noteLength = notes[i].noteLength;
+			cloneNote.restLength = notes[i].restLength;
+			newNotes[i] = cloneNote; 
+		}
+		return newNotes;
+	}
+	
+	/*
 	 * Mutates a section of notes
-	 * Strength variable defines how many notes will be mutated
+	 * Where "strength" variable defines how many notes will be mutated
 	 */
 	private Note[] mutateSectionByNote(Note[] notes, float strength)
 	{
-		Note[] newNotes = notes.clone();
+		Note[] newNotes = cloneNotes(notes);;
 		int randNotePos;
 		int timeAvailableBetweenNotes;
 		int numNotesToMutate;
@@ -211,6 +415,8 @@ public class Section {
 		mutatedNotesPos = new ArrayList<>();
 //		int[] mutatedNotesPos = new int[numNotesToMutate];
 		
+		if(numNotesToMutate == 0)
+			numNotesToMutate = 1;
 		
 		// Mutate/Replace a number of notes based on strength
 		for(int i = 0; i < numNotesToMutate; i++)
@@ -236,6 +442,9 @@ public class Section {
 		return newNotes;
 	}
 	
+	/*
+	 * Mutate all aspects of the note, whilst considering the previousNote in the section
+	 */
 	private Note mutateNote(Note previousNote, int timeAvailable)
 	{
 		int timeInBar = getTimeInFullBar(getMilliSecondsPerBeat());
@@ -248,6 +457,10 @@ public class Section {
 		return new Note(newNote, newNoteLength, newRestLength);
 	}
 	
+	
+	/*
+	 * Mutate the note length and rest length of every note in the section
+	 */
 	private Note[] mutateAllLengths(Note[] notes)
 	{
 		Note[] newNotes = notes.clone();
@@ -277,6 +490,9 @@ public class Section {
 		return assignNewLengths(newNotes, newNoteLengths, newRestLengths);
 	}
 	
+	/*
+	 * Assigns mutated note lengths and rest to the section notes
+	 */
 	private Note[] assignNewLengths(Note[] notes, ArrayList<Integer> newNoteLengths, ArrayList<Integer> newRestLengths)
 	{
 		Note[] newNotes = notes.clone();
@@ -316,6 +532,10 @@ public class Section {
 		return arrayCopy;
 	}
 	
+	/*
+	 * Creates and returns a note generated completely randomly 
+	 * (no use of defined probabilities)
+	 */
 	private Note getCompletelyRandomNote()
 	{
 		MidiNote midiNote = notesAllowed[getRandomInt(0, notesAllowed.length-1)];
@@ -339,6 +559,10 @@ public class Section {
 		return false;
 	}
 	
+	/*
+	 * Copies bar notes multiple times
+	 * Returns array of repeated bar notes
+	 */
 	protected Note[] generateRepeatedBars(int numberOfRepeatedBars, Note[] barNotes)
 	{
 		Note[] repeatedBarNotes = new Note[barNotes.length * numberOfRepeatedBars];
@@ -355,11 +579,17 @@ public class Section {
 		return repeatedBarNotes;
 	}
 	
+	/*
+	 * Returns a random integer between the "mix" and "max"
+	 */
 	private int getRandomInt(int min, int max)
 	{
 		return ThreadLocalRandom.current().nextInt(min, max + 1);
 	}	
 	
+	/*
+	 * Generates all notes in the section
+	 */
 	protected Note[] generateSectionNotes()
 	{
 		ArrayList<Note> sectionNotes = new ArrayList<Note>();
@@ -372,6 +602,11 @@ public class Section {
 		return sectionNotes.toArray(new Note[sectionNotes.size()]); //Convert ArrayList to Note array (Note[]) and return
 	}
 	
+	/*
+	 * Gets a random note length
+	 * Based on the time it has available
+	 * With probabilities for the note length being chosen, based on the previousNoteLength
+	 */
 	private int getRandNoteLength(int timeInBar, int timeAvailable, int previousNoteLength)
 	{
 		if(timeAvailable == 0)
@@ -399,6 +634,11 @@ public class Section {
 		return 0;
 	}
 	
+	/*
+	 * Gets a random rest length
+	 * Based on the time it has available
+	 * With probabilities for the rest length being chosen, based on the previousRestLength
+	 */
 	private int getRandRestLength(int timeInBar, int timeAvailable, int previousRestLength)
 	{
 		if(timeAvailable == 0)
@@ -433,11 +673,17 @@ public class Section {
 		return timeAvailable;
 	}
 	
+	/*
+	 * Returns the number of millisections per beat for the given song tempo
+	 */
 	private float getMilliSecondsPerBeat()
 	{
 		return 60000/tempoBPM;
 	}
 	
+	/*
+	 * Returns the number of milliseconds in a full bar (for the given song tempo)
+	 */
 	private int getTimeInFullBar(float millisecondsPerBeat)
 	{
 		 return (int)(4 * millisecondsPerBeat);
@@ -580,6 +826,10 @@ public class Section {
 		return chosenPos;
 	}
 	
+	/*
+	 * Returns the position of an item in an array as if looping through circular positions.
+	 * Allows searching for an item from a certain "distance" away
+	 */
 	private int getCircularArrayPos(int arraySize, int nextPos)
 	{
 		if(nextPos < 0)
@@ -590,7 +840,7 @@ public class Section {
 	}
 	
 	/*
-	 * Returns all notes in the scale of the Song's Key note input
+	 * Returns all midi notes in the scale of the Song's Key note input
 	 */
 	private MidiNote[] getNotesAllowed(MidiNote key)
 	{

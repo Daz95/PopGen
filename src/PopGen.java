@@ -1,5 +1,3 @@
-import java.awt.Frame;
-
 import javax.sound.midi.MidiUnavailableException;
 import javax.swing.JApplet;
 import javax.swing.JFrame;

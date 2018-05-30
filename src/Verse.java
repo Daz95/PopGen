@@ -4,13 +4,10 @@
 
 /**
  * @author Dharius
- *
+ * Verse section
  */
 public class Verse extends Section {
 
-	/**
-	 * 
-	 */
 	public Verse(MidiNote  key, int tempoBPM) {
 		super(key, tempoBPM);
 //		Verse.numberOfBars = 8;
@@ -27,12 +24,15 @@ public class Verse extends Section {
 //		notes = generateSectionNotes();
 	}
 	
-	private boolean isValidVerse()
+	/*
+	 * Clones verse1 into a new Verse object
+	 */
+	public Verse cloneVerse(Verse verse1)
 	{
-		if (this.notes.length != 0)
-			return true;
-		else
-			return false;
+		Verse verse2 = new Verse(key, tempoBPM);
+		verse2.notes = verse1.notes;
+		verse2.barNotes= verse1.barNotes;
+		
+		return verse2;
 	}
-
 }

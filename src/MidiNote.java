@@ -1,3 +1,7 @@
+/*
+ * MidiNote enumerator
+ * To map MidiNote integers to actual note names
+ */
 public enum MidiNote 
 {		
 	G(55), Gsharp(56), Aflat(56), A(57), Asharp(58), Bflat(58), B(59), Cflat(59), C(60), 

@@ -4,13 +4,10 @@
 
 /**
  * @author Dharius
- *
+ * Chorus section
  */
 public class Chorus extends Section {
 
-	/**
-	 * 
-	 */
 	public Chorus(MidiNote  key, int tempoBPM) {
 		super(key, tempoBPM);
 		Chorus.numberOfBars = 8;
@@ -25,13 +22,4 @@ public class Chorus extends Section {
 		notes = generateRepeatedBars(numOfRepetitions, generateSectionNotes());;
 //		notes = generateSectionNotes();
 	}
-	
-	private boolean isValidChorus()
-	{
-		if (this.notes.length != 0)
-			return true;
-		else
-			return false;
-	}
-
 }
